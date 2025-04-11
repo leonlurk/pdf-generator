@@ -4,10 +4,12 @@
     "description": "API para generar PDFs personalizados con plantillas y variables",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js",
-        "dev": "nodemon server.js",
+        "start": "node api/index.js",
+        "dev": "vercel dev",
         "test": "jest"
     },
+
+
     "keywords": [
         "pdf",
         "api",

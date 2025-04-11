@@ -5,16 +5,14 @@ const csv = require('csv-parser');
 
 const app = express();
 
+app.use(express.static(path.join(__dirname, '../public')));
+
 app.use(express.json());
 
 // Servir archivos estáticos
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
 app.use('/data', express.static(path.join(__dirname, '../public/data')));
 
-// Ruta principal de prueba
-app.get('/', (req, res) => {
-  res.send('API de generación de PDFs funcionando en Vercel');
-});
 
 // Ruta que lee el CSV y lo normaliza
 app.get('/clientes', (req, res) => {

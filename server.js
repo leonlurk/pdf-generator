@@ -22,7 +22,7 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 // Configuración mejorada de directorios
 const baseDir = __dirname;
 const publicDir = path.join(baseDir, 'public');
-const tmpDir = path.join(baseDir, 'tmp');
+const tmpDir = '/tmp';
 const imagesDir = path.join(publicDir, 'images');
 const dataDir = path.join(publicDir, 'data');
 

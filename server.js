@@ -1,4 +1,4 @@
-// server.js - Archivo principal de la API
+// server.js - Archivo principal de la API mejorado
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -18,24 +18,34 @@ const PORT = process.env.PORT || 3001; // Cambiado a 3001 para evitar conflictos
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static('public'));
+
+// Configuración mejorada de directorios
+const baseDir = __dirname;
+const publicDir = path.join(baseDir, 'public');
+const tmpDir = path.join(baseDir, 'tmp');
+const imagesDir = path.join(publicDir, 'images');
+const dataDir = path.join(publicDir, 'data');
+
+// Configurar directorio estático
+app.use(express.static(publicDir));
+
+// Función para crear directorios si no existen
+function createDirIfNotExists(dir) {
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`Directorio creado: ${dir}`);
+    } catch (error) {
+      console.error(`Error al crear directorio ${dir}:`, error);
+    }
+  }
+}
 
 // Crear carpetas necesarias si no existen
-const tmpDir = path.join(__dirname, 'tmp');
-const imagesDir = path.join(__dirname, 'public', 'images');
-const dataDir = path.join(__dirname, 'public', 'data');
-
-if (!fs.existsSync(tmpDir)) {
-  fs.mkdirSync(tmpDir, { recursive: true });
-}
-
-if (!fs.existsSync(imagesDir)) {
-  fs.mkdirSync(imagesDir, { recursive: true });
-}
-
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+createDirIfNotExists(publicDir);
+createDirIfNotExists(tmpDir);
+createDirIfNotExists(imagesDir);
+createDirIfNotExists(dataDir);
 
 // Variable global para almacenar los datos de clientes
 let clientesData = [];
@@ -43,19 +53,29 @@ let clientesData = [];
 // Función mejorada para cargar el CSV de clientes
 function cargarCSVClientes() {
   try {
-    const csvPath = path.join(__dirname, 'public', 'data', 'clientes.csv');
+    const csvPath = path.join(dataDir, 'clientes.csv');
     
     // Verificar si existe el archivo
     if (!fs.existsSync(csvPath)) {
       console.warn('Archivo de clientes no encontrado en:', csvPath);
+      console.log('Contenido del directorio data:', fs.readdirSync(dataDir));
       return;
     }
     
     // Leer el archivo como Buffer para manejar distintas codificaciones
     const csvBuffer = fs.readFileSync(csvPath);
     
-    // Intentar con ISO-8859-1 (Latin1) primero, que es común en español
-    let csvContent = csvBuffer.toString('latin1');
+    // Intentar con distintas codificaciones
+    let csvContent;
+    try {
+      csvContent = csvBuffer.toString('utf8');
+      if (csvContent.includes('�')) {
+        // Si hay caracteres inválidos, intentar con Latin1
+        csvContent = csvBuffer.toString('latin1');
+      }
+    } catch (e) {
+      csvContent = csvBuffer.toString('latin1');
+    }
     
     console.log("Primeras 100 caracteres del CSV:", csvContent.substring(0, 100));
     
@@ -63,7 +83,8 @@ function cargarCSVClientes() {
     const result = Papa.parse(csvContent, {
       header: true,
       skipEmptyLines: true,
-      dynamicTyping: false // Mantener como strings para manejar los DNI con comas
+      dynamicTyping: false, // Mantener como strings para manejar los DNI con comas
+      transformHeader: h => h.trim() // Normalizar encabezados
     });
     
     if (result.errors && result.errors.length > 0) {
@@ -71,16 +92,28 @@ function cargarCSVClientes() {
       return;
     }
     
+    // Verificar las columnas del CSV
+    const firstRow = result.data[0];
+    console.log('Encabezados detectados:', Object.keys(firstRow));
+    
     // Normalizar los datos del CSV
     clientesData = result.data.map(row => {
-      // Determinar qué columnas usar basado en los encabezados
-      const nombreColumn = row['NOMBRE DEL CLIENTE'] || row['NOMBRE'] || row['nombre'] || Object.values(row)[0];
-      const dniColumn = row['D.N.I'] || row['DNI'] || row['dni'] || Object.values(row)[1];
-      const direccionColumn = row['DIRECCIÓN'] || row['DIRECCION'] || row['direccion'] || Object.values(row)[2];
-      const telefonoColumn = row['TELEFONO'] || row['TELÉFONO'] || row['telefono'] || Object.values(row)[3];
+      // Determinar qué columnas usar basado en los encabezados (insensible a mayúsculas)
+      const headers = Object.keys(row).map(h => h.toLowerCase());
+      
+      let nombreKey = headers.find(h => h.includes('nombre')) || '';
+      let dniKey = headers.find(h => h.includes('dni') || h.includes('d.n.i')) || '';
+      let direccionKey = headers.find(h => h.includes('direccion') || h.includes('dirección')) || '';
+      let telefonoKey = headers.find(h => h.includes('telefono') || h.includes('teléfono')) || '';
+      
+      // Si no encontramos las claves, usar las originales que podamos encontrar
+      const nombreColumn = row[nombreKey] || row['NOMBRE DEL CLIENTE'] || row['NOMBRE'] || row['nombre'] || '';
+      const dniColumn = row[dniKey] || row['D.N.I'] || row['DNI'] || row['dni'] || '';
+      const direccionColumn = row[direccionKey] || row['DIRECCIÓN'] || row['DIRECCION'] || row['direccion'] || '';
+      const telefonoColumn = row[telefonoKey] || row['TELEFONO'] || row['TELÉFONO'] || row['telefono'] || '';
       
       // Limpiar el DNI (quitar comillas, comas y espacios)
-      const dniLimpio = dniColumn ? dniColumn.replace(/[\s",]/g, '') : '';
+      const dniLimpio = dniColumn ? String(dniColumn).replace(/[\s",]/g, '') : '';
       
       return {
         nombre: nombreColumn || '',
@@ -103,7 +136,7 @@ function cargarCSVClientes() {
 
 // Ruta principal para verificar que el servidor está funcionando
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 // Endpoint mejorado para buscar cliente por DNI
@@ -135,6 +168,20 @@ app.get('/api/cliente/:dni', (req, res) => {
   return res.json(cliente);
 });
 
+// Verificador de archivos para comprobar que el logo existe
+app.get('/api/check-logo', (req, res) => {
+  const logoPath = path.join(imagesDir, 'logo.png');
+  const exists = fs.existsSync(logoPath);
+  
+  const response = {
+    exists,
+    path: logoPath,
+    files: exists ? [] : fs.readdirSync(imagesDir)
+  };
+  
+  res.json(response);
+});
+
 // Ruta para crear un PDF basado en un diseño y variables
 app.post('/api/generate-pdf', async (req, res) => {
   try {
@@ -148,6 +195,9 @@ app.post('/api/generate-pdf', async (req, res) => {
     const filename = `${uuidv4()}.pdf`;
     const outputPath = path.join(tmpDir, filename);
     
+    console.log(`Generando PDF con template: ${template}`);
+    console.log(`Ruta de salida: ${outputPath}`);
+    
     // Generar el PDF con original y duplicado
     if (template === 'reciboCiudadMotors') {
       await generateCiudadMotorsReceipt(variables, options, outputPath);
@@ -156,11 +206,25 @@ app.post('/api/generate-pdf', async (req, res) => {
       await generatePDF(template, variables, options, outputPath);
     }
     
+    if (!fs.existsSync(outputPath)) {
+      throw new Error(`El archivo PDF no se generó correctamente: ${outputPath}`);
+    }
+    
+    // Verificar el tamaño del archivo
+    const stats = fs.statSync(outputPath);
+    console.log(`Archivo generado: ${outputPath} (${stats.size} bytes)`);
+    
+    if (stats.size === 0) {
+      throw new Error('El archivo PDF generado está vacío');
+    }
+    
     // Enviar el PDF como respuesta
     res.download(outputPath, `Recibo_${variables.numeroRecibo || 'CiudadMotors'}.pdf`, (err) => {
       if (err) {
         console.error('Error al enviar el archivo:', err);
-        return res.status(500).json({ error: 'Error al generar el PDF' });
+        if (!res.headersSent) {
+          return res.status(500).json({ error: 'Error al generar el PDF' });
+        }
       }
       
       // Eliminar el archivo temporal después de enviarlo
@@ -180,6 +244,9 @@ async function generateCiudadMotorsReceipt(variables, options = {}, outputPath) 
   const originalPath = path.join(tmpDir, `original-${uuidv4()}.pdf`);
   const duplicatePath = path.join(tmpDir, `duplicado-${uuidv4()}.pdf`);
   
+  console.log('Generando recibo original:', originalPath);
+  console.log('Generando recibo duplicado:', duplicatePath);
+  
   try {
     // Crear recibo original
     await generateSingleReceipt(variables, 'ORIGINAL', originalPath);
@@ -196,6 +263,7 @@ async function generateCiudadMotorsReceipt(variables, options = {}, outputPath) 
     
     return outputPath;
   } catch (error) {
+    console.error('Error al generar recibo:', error);
     // Limpiar archivos temporales en caso de error
     if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
     if (fs.existsSync(duplicatePath)) fs.unlinkSync(duplicatePath);
@@ -210,6 +278,8 @@ async function generateSingleReceipt(variables, type, outputPath) {
       // Generar QR code
       const qrCodePath = path.join(tmpDir, `qr-${uuidv4()}.png`);
       await generateQRCode('https://ciudadmotorscba.com', qrCodePath);
+      
+      console.log(`QR code generado: ${qrCodePath}`);
       
       // Crear un nuevo documento PDF
       const doc = new PDFDocument({
@@ -235,16 +305,19 @@ async function generateSingleReceipt(variables, type, outputPath) {
       
       // Manejar eventos de stream
       stream.on('finish', () => {
+        console.log(`Recibo ${type} finalizado: ${outputPath}`);
         // Eliminar el QR temporal
         if (fs.existsSync(qrCodePath)) fs.unlinkSync(qrCodePath);
         resolve(outputPath);
       });
       
       stream.on('error', (error) => {
+        console.error(`Error en stream al generar recibo ${type}:`, error);
         if (fs.existsSync(qrCodePath)) fs.unlinkSync(qrCodePath);
         reject(error);
       });
     } catch (error) {
+      console.error(`Error al generar recibo ${type}:`, error);
       reject(error);
     }
   });
@@ -261,8 +334,12 @@ function generateQRCode(text, outputPath) {
       width: 150,
       errorCorrectionLevel: 'H'
     }, (err) => {
-      if (err) reject(err);
-      else resolve(outputPath);
+      if (err) {
+        console.error('Error al generar QR code:', err);
+        reject(err);
+      } else {
+        resolve(outputPath);
+      }
     });
   });
 }
@@ -270,6 +347,15 @@ function generateQRCode(text, outputPath) {
 // Función para combinar múltiples PDFs en uno solo
 async function mergePDFs(pdfPaths, outputPath) {
   try {
+    console.log('Combinando PDFs:', pdfPaths);
+    
+    // Verificar que todos los PDFs existen
+    for (const pdfPath of pdfPaths) {
+      if (!fs.existsSync(pdfPath)) {
+        throw new Error(`El archivo PDF no existe: ${pdfPath}`);
+      }
+    }
+    
     // Crear un nuevo documento PDF
     const mergedPdf = await PDFLib.create();
     
@@ -288,8 +374,11 @@ async function mergePDFs(pdfPaths, outputPath) {
     const mergedPdfBytes = await mergedPdf.save();
     fs.writeFileSync(outputPath, mergedPdfBytes);
     
+    console.log(`PDF combinado guardado en: ${outputPath}`);
+    
     return outputPath;
   } catch (error) {
+    console.error('Error al combinar PDFs:', error);
     throw error;
   }
 }
@@ -324,7 +413,8 @@ function renderCiudadMotorsReceipt(doc, variables, type, qrCodePath) {
     const contentWidth = pageWidth - (pageMargin * 2);
     
     // Logo y marca de agua
-    const logoPath = path.join(__dirname, 'public', 'images', 'logo.png');
+    const logoPath = path.join(imagesDir, 'logo.png');
+    console.log(`Buscando logo en: ${logoPath}`);
     
     // Cabecera del recibo
     doc.fontSize(16)
@@ -349,22 +439,33 @@ function renderCiudadMotorsReceipt(doc, variables, type, qrCodePath) {
     doc.fontSize(10)
        .text('Córdoba Av. Maipú 347', 430, 70, { align: 'left' });
     
-    // Logo en la esquina superior izquierda
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, 40, 25, { width: 100 });
+    // Logo en la esquina superior izquierda - con manejo de errores mejorado
+    try {
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 40, 25, { width: 100 });
+        console.log('Logo cargado correctamente');
+      } else {
+        console.warn(`Logo no encontrado en: ${logoPath}`);
+      }
+    } catch (error) {
+      console.error('Error al cargar el logo:', error.message);
     }
     
-    // Marca de agua del logo en el fondo
-    if (fs.existsSync(logoPath)) {
-      doc.save(); // Guardar el estado actual
-      doc.opacity(0.05); // Hacer el logo muy transparente
-      
-      // Colocar el logo como marca de agua en el centro
-      doc.image(logoPath, pageWidth/2 - 150, 320, { 
-        width: 300
-      });
-      
-      doc.restore(); // Restaurar el estado (volver a opacidad normal)
+    // Marca de agua del logo en el fondo - con manejo de errores mejorado
+    try {
+      if (fs.existsSync(logoPath)) {
+        doc.save(); // Guardar el estado actual
+        doc.opacity(0.05); // Hacer el logo muy transparente
+        
+        // Colocar el logo como marca de agua en el centro
+        doc.image(logoPath, pageWidth/2 - 150, 320, { 
+          width: 300
+        });
+        
+        doc.restore(); // Restaurar el estado (volver a opacidad normal)
+      }
+    } catch (error) {
+      console.error('Error al usar el logo como marca de agua:', error.message);
     }
     
     // Línea divisoria
@@ -531,8 +632,14 @@ function renderCiudadMotorsReceipt(doc, variables, type, qrCodePath) {
        .fill();
     
     // QR code en la parte inferior izquierda
-    if (fs.existsSync(qrCodePath)) {
-      doc.image(qrCodePath, pageMargin + 10, y + 2.5, { width: 30 });
+    try {
+      if (fs.existsSync(qrCodePath)) {
+        doc.image(qrCodePath, pageMargin + 10, y + 2.5, { width: 30 });
+      } else {
+        console.warn(`QR code no encontrado en: ${qrCodePath}`);
+      }
+    } catch (error) {
+      console.error('Error al incluir el QR code:', error.message);
     }
     
     // Mensaje en la parte inferior
@@ -542,56 +649,65 @@ function renderCiudadMotorsReceipt(doc, variables, type, qrCodePath) {
     
     doc.fontSize(8)
        .text('cobranzas@ciudadmotorscba.com', pageMargin + 50, y + 22, { align: 'center', width: contentWidth - 60 });
-  }
+}
 
 // Función para generar el PDF según el diseño y variables (para otras plantillas)
 async function generatePDF(template, variables, options = {}, outputPath) {
   return new Promise((resolve, reject) => {
-    // Crear un nuevo documento PDF
-    const doc = new PDFDocument({
-      size: options.size || 'A4',
-      margin: options.margin || 50,
-      info: {
-        Title: options.title || 'Documento PDF',
-        Author: options.author || 'PDF API',
-        Subject: options.subject || '',
-        Keywords: options.keywords || '',
+    try {
+      // Crear un nuevo documento PDF
+      const doc = new PDFDocument({
+        size: options.size || 'A4',
+        margin: options.margin || 50,
+        info: {
+          Title: options.title || 'Documento PDF',
+          Author: options.author || 'PDF API',
+          Subject: options.subject || '',
+          Keywords: options.keywords || '',
+        }
+      });
+      
+      // Pipe el PDF a un archivo
+      const stream = fs.createWriteStream(outputPath);
+      doc.pipe(stream);
+      
+      console.log(`Generando PDF con template: ${template}`);
+      
+      // Renderizar el PDF según el template seleccionado
+      switch (template) {
+        case 'factura':
+          renderInvoiceTemplate(doc, variables, options);
+          break;
+        case 'certificado':
+          renderCertificateTemplate(doc, variables, options);
+          break;
+        case 'carta':
+          renderLetterTemplate(doc, variables, options);
+          break;
+        case 'reporte':
+          renderReportTemplate(doc, variables, options);
+          break;
+        default:
+          renderCustomTemplate(doc, variables, options);
       }
-    });
-    
-    // Pipe el PDF a un archivo
-    const stream = fs.createWriteStream(outputPath);
-    doc.pipe(stream);
-    
-    // Renderizar el PDF según el template seleccionado
-    switch (template) {
-      case 'factura':
-        renderInvoiceTemplate(doc, variables, options);
-        break;
-      case 'certificado':
-        renderCertificateTemplate(doc, variables, options);
-        break;
-      case 'carta':
-        renderLetterTemplate(doc, variables, options);
-        break;
-      case 'reporte':
-        renderReportTemplate(doc, variables, options);
-        break;
-      default:
-        renderCustomTemplate(doc, variables, options);
-    }
-    
-    // Finalizar el documento
-    doc.end();
-    
-    // Manejar eventos de stream
-    stream.on('finish', () => {
-      resolve(outputPath);
-    });
-    
-    stream.on('error', (error) => {
+      
+      // Finalizar el documento
+      doc.end();
+      
+      // Manejar eventos de stream
+      stream.on('finish', () => {
+        console.log(`PDF generado correctamente: ${outputPath}`);
+        resolve(outputPath);
+      });
+      
+      stream.on('error', (error) => {
+        console.error('Error en el stream al generar PDF:', error);
+        reject(error);
+      });
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
       reject(error);
-    });
+    }
   });
 }
 
@@ -660,8 +776,8 @@ function renderInvoiceTemplate(doc, variables, options) {
          .text(item.code || '', itemCodeX, y)
          .text(item.description || '', descriptionX, y)
          .text(item.quantity || '0', quantityX, y)
-         .text(`$${(item.price || 0).toFixed(2)}`, priceX, y)
-         .text(`$${itemTotal.toFixed(2)}`, amountX, y);
+         .text(`${(item.price || 0).toFixed(2)}`, priceX, y)
+         .text(`${itemTotal.toFixed(2)}`, amountX, y);
       
       y += 20;
     });
@@ -679,16 +795,16 @@ function renderInvoiceTemplate(doc, variables, options) {
   y += 20;
   doc.fontSize(10)
      .text('Subtotal:', 350, y)
-     .text(`$${subtotal.toFixed(2)}`, amountX, y);
+     .text(`${subtotal.toFixed(2)}`, amountX, y);
   
   y += 20;
   doc.text(`IVA (${taxRate || 0}%):`, 350, y)
-     .text(`$${tax.toFixed(2)}`, amountX, y);
+     .text(`${tax.toFixed(2)}`, amountX, y);
   
   y += 20;
   doc.fontSize(12)
      .text('Total:', 350, y)
-     .text(`$${total.toFixed(2)}`, amountX, y);
+     .text(`${total.toFixed(2)}`, amountX, y);
   
   // Notas
   if (notes) {
@@ -828,6 +944,88 @@ function renderLetterTemplate(doc, variables, options) {
   doc.fontSize(11).text(senderName || 'Remitente', 400);
 }
 
+// Template para reportes (usando un diseño diferente)
+function renderReportTemplate(doc, variables, options) {
+  const {
+    title,
+    subtitle,
+    author,
+    date,
+    sections,
+    logo
+  } = variables;
+  
+  // Agregar logo si existe
+  if (logo && fs.existsSync(logo)) {
+    doc.image(logo, 50, 45, { width: 60 });
+  }
+  
+  // Título y subtítulo
+  doc.fontSize(22)
+     .fillColor('#000066')
+     .text(title || 'REPORTE', 120, 50);
+     
+  if (subtitle) {
+    doc.fontSize(14)
+       .fillColor('#666666')
+       .text(subtitle, 120, 75);
+  }
+  
+  // Autor y fecha
+  doc.fontSize(10)
+     .fillColor('#000000')
+     .text(`Autor: ${author || 'N/A'}`, 400, 50)
+     .text(`Fecha: ${date || new Date().toLocaleDateString()}`, 400, 65);
+  
+  // Línea divisoria
+  doc.moveTo(50, 100)
+     .lineTo(550, 100)
+     .lineWidth(1)
+     .strokeColor('#CCCCCC')
+     .stroke();
+  
+  let y = 120;
+  
+  // Secciones del reporte
+  if (sections && Array.isArray(sections)) {
+    sections.forEach(section => {
+      // Título de sección
+      doc.fontSize(16)
+         .fillColor('#000066')
+         .text(section.title || 'Sección sin título', 50, y);
+      y += 25;
+      
+      // Contenido de la sección
+      doc.fontSize(11)
+         .fillColor('#000000')
+         .text(section.content || 'Sin contenido', 50, y, {
+           width: 500,
+           align: 'justify'
+         });
+      
+      // Calcular altura del texto para posicionar correctamente
+      const textHeight = doc.heightOfString(section.content || 'Sin contenido', {
+        width: 500,
+        align: 'justify'
+      });
+      
+      y += textHeight + 30; // Espacio entre secciones
+      
+      // Agregar imagen si existe
+      if (section.image && fs.existsSync(section.image)) {
+        doc.image(section.image, 50, y, { width: 400 });
+        y += 250; // Espacio después de imagen
+      }
+      
+      // Saltar a nueva página si es necesario
+      if (y > 700) {
+        doc.addPage();
+        y = 50;
+      }
+    });
+  }
+}
+
 // Template para diseños personalizados básico
 function renderCustomTemplate(doc, variables, options) {
   const { title, content } = variables;
@@ -849,6 +1047,11 @@ setInterval(cargarCSVClientes, 5 * 60 * 1000);
 // Iniciar el servidor
 app.listen(PORT, () => {
   console.log(`API de generación de PDFs iniciada en el puerto ${PORT}`);
+  console.log(`Directorio base: ${baseDir}`);
+  console.log(`Directorio público: ${publicDir}`);
+  console.log(`Directorio de imágenes: ${imagesDir}`);
+  console.log(`Directorio de datos: ${dataDir}`);
+  console.log(`Directorio temporal: ${tmpDir}`);
 });
 
 module.exports = app;

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Recibos - Ciudad Motors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f7f7f7;
+        }
+        h1 {
+            text-align: center;
+            color: #002e5d; /* Azul oscuro del logo */
+        }
+        .header-logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header-logo img {
+            max-width: 200px;
+            height: auto;
+        }
+        .form-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-section {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        .form-section h3 {
+            color: #002e5d;
+            margin-top: 0;
+        }
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            flex: 1;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #444;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        button {
+            background-color: #002e5d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #004580;
+        }
+        .loading {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+        .loading img {
+            width: 50px;
+            height: 50px;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        /* Estilo para resaltar campos autocompletados */
+        input.autocompleted {
+            background-color: #f0f8ff;
+            border-color: #4CAF50;
+        }
+        
+        /* Estilo para el botón de búsqueda */
+        #buscarClienteBtn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto;
+            margin-top: 0;
+        }
+        
+        #buscarClienteBtn:hover {
+            background-color: #45a049;
+        }
+        
+        #buscarClienteBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* Estilo para notificaciones */
+        #notificacion {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-logo">
+        <img src="/images/logo.png" alt="Ciudad Motors Logo">
+    </div>
+    
+    <h1>Generador de Recibos</h1>
+    
+    <div class="form-container">
+        <form id="receiptForm">
+            <div class="form-section">
+                <h3>Información del Recibo</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="numeroRecibo">Número de Recibo:</label>
+                        <input type="text" id="numeroRecibo" name="numeroRecibo" placeholder="Ej: 0002-00000000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fechacomprobante">Fecha:</label>
+                        <input type="date" id="fechacomprobante" name="fechacomprobante" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Información del Cliente</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombreCliente">Nombre Completo:</label>
+                        <input type="text" id="nombreCliente" name="nombreCliente" placeholder="Ej: Quiroga Vilte, Alejandro Facundo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="metododePago">Método de Pago:</label>
+                        <select id="metododePago" name="metododePago" required>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                            <option value="cheque">Cheque</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- SECCIÓN CORREGIDA PARA DNI -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="clienteDni">DNI:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="clienteDni" name="clienteDni" placeholder="Ej: 40505833" required>
+                            <button type="button" id="buscarClienteBtn" style="white-space: nowrap; padding: 10px 15px; width: auto; margin-top: 0;">Buscar</button>
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #666;">Ingrese el DNI sin puntos ni comas</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="clienteTelefono">Teléfono:</label>
+                        <input type="text" id="clienteTelefono" name="clienteTelefono" placeholder="Ej: 3512843961" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="clienteDomicilio">Domicilio:</label>
+                        <input type="text" id="clienteDomicilio" name="clienteDomicilio" placeholder="Ej: Santa Rosa 1851" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Detalle de Pago</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cantCuotasPagas">Cuotas Ciudad Motors - Cantidad:</label>
+                        <input type="number" id="cantCuotasPagas" name="cantCuotasPagas" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="numeroCuota">Número de Cuota:</label>
+                        <input type="number" id="numeroCuota" name="numeroCuota" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="valorCuota">Cuotas Ciudad Motors - Valor Unitario:</label>
+                        <input type="number" id="valorCuota" name="valorCuota" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalPagadocuota">Cuotas Ciudad Motors - Total:</label>
+                        <input type="number" id="totalPagadocuota" name="totalPagadocuota" readonly>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cantidadcuotasseguro">Seguro - Cantidad:</label>
+                        <input type="number" id="cantidadcuotasseguro" name="cantidadcuotasseguro" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="SeguroCuota">Seguro - Valor Unitario:</label>
+                        <input type="number" id="SeguroCuota" name="SeguroCuota" min="0" step="0.01" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalPgadoSeguro">Seguro - Total:</label>
+                        <input type="number" id="totalPgadoSeguro" name="totalPgadoSeguro" readonly>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="interesgenerado">Interés - Valor:</label>
+                        <input type="number" id="interesgenerado" name="interesgenerado" min="0" step="0.01" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalinteres">Interés - Total:</label>
+                        <input type="number" id="totalinteres" name="totalinteres" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalPagadofinal">Total Final:</label>
+                        <input type="number" id="totalPagadofinal" name="totalPagadofinal" readonly>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Notas Adicionales</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="notas">Notas:</label>
+                        <textarea id="notas" name="notas" placeholder="Ej: Interés 20%"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit">Generar Recibo (Original y Duplicado)</button>
+        </form>
+        
+        <div id="loadingIndicator" class="loading">
+            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzgiIGhlaWdodD0iMzgiIHZpZXdCb3g9IjAgMCAzOCAzOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBzdHJva2U9IiMwMDJlNWQiPgogICAgPGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxIDEpIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICAgICAgICA8Y2lyY2xlIHN0cm9rZS1vcGFjaXR5PSIuNSIgY3g9IjE4IiBjeT0iMTgiIHI9IjE4Ii8+CiAgICAgICAgICAgIDxwYXRoIGQ9Ik0zNiAxOGMwLTkuOTQtOC4wNi0xOC0xOC0xOCI+CiAgICAgICAgICAgICAgICA8YW5pbWF0ZVRyYW5zZm9ybQogICAgICAgICAgICAgICAgICAgIGF0dHJpYnV0ZU5hbWU9InRyYW5zZm9ybSIKICAgICAgICAgICAgICAgICAgICB0eXBlPSJyb3RhdGUiCiAgICAgICAgICAgICAgICAgICAgZnJvbT0iMCAxOCAxOCIKICAgICAgICAgICAgICAgICAgICB0bz0iMzYwIDE4IDE4IgogICAgICAgICAgICAgICAgICAgIGR1cj0iMXMiCiAgICAgICAgICAgICAgICAgICAgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz4KICAgICAgICAgICAgPC9wYXRoPgogICAgICAgIDwvZz4KICAgIDwvZz4KPC9zdmc+" alt="Cargando...">
+            <p>Generando recibo, por favor espere...</p>
+        </div>
+        
+        <div id="successMessage" class="success-message">
+            Recibo generado exitosamente.
+        </div>
+        
+        <div id="errorMessage" class="error-message">
+            Error al generar el recibo. Por favor, intente nuevamente.
+        </div>
+    </div>
+    
+    <script>
+        // Función mejorada para buscar cliente por DNI
+        async function buscarClientePorDNI(dni) {
+            if (!dni || dni.trim() === '') {
+                mostrarNotificacion('Por favor ingrese un DNI válido', 'error');
+                return;
+            }
+            
+            try {
+                document.getElementById('buscarClienteBtn').disabled = true;
+                document.getElementById('buscarClienteBtn').innerHTML = 'Buscando...';
+                
+                // Limpiar espacios y caracteres no numéricos del DNI
+                const dniLimpio = dni.replace(/[\s,.]/g, '').trim();
+                
+                const response = await fetch(`/api/cliente/${dniLimpio}`);
+                
+                if (!response.ok) {
+                    throw new Error('Cliente no encontrado');
+                }
+                
+                const cliente = await response.json();
+                
+                // Rellenar el formulario con los datos del cliente
+                document.getElementById('nombreCliente').value = cliente.nombre || '';
+                document.getElementById('clienteDomicilio').value = cliente.domicilio || '';
+                document.getElementById('clienteTelefono').value = cliente.telefono || '';
+                
+                // Añadir clase para resaltar campos autocompletados
+                document.getElementById('nombreCliente').classList.add('autocompleted');
+                document.getElementById('clienteDomicilio').classList.add('autocompleted');
+                document.getElementById('clienteTelefono').classList.add('autocompleted');
+                
+                // Mostrar notificación de éxito
+                mostrarNotificacion('Cliente encontrado. Datos completados automáticamente.', 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarNotificacion('No se encontró ningún cliente con ese DNI.', 'error');
+            } finally {
+                document.getElementById('buscarClienteBtn').disabled = false;
+                document.getElementById('buscarClienteBtn').innerHTML = 'Buscar';
+            }
+        }
+        
+        // Función mejorada para mostrar notificaciones
+        function mostrarNotificacion(mensaje, tipo) {
+            // Crear elemento de notificación si no existe
+            let notificacion = document.getElementById('notificacion');
+            if (!notificacion) {
+                notificacion = document.createElement('div');
+                notificacion.id = 'notificacion';
+                document.body.appendChild(notificacion);
+            }
+            
+            // Establecer color según tipo
+            if (tipo === 'success') {
+                notificacion.style.backgroundColor = '#4CAF50';
+            } else if (tipo === 'error') {
+                notificacion.style.backgroundColor = '#f44336';
+            } else {
+                notificacion.style.backgroundColor = '#2196F3';
+            }
+            
+            notificacion.textContent = mensaje;
+            notificacion.style.display = 'block';
+            
+            // Ocultar después de 3 segundos
+            setTimeout(() => {
+                notificacion.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Funciones mejoradas para calcular los totales automáticamente
+        function calculateTotalCuota() {
+            const cantidad = parseFloat(document.getElementById('cantCuotasPagas').value) || 0;
+            const valorUnitario = parseFloat(document.getElementById('valorCuota').value) || 0;
+            const total = cantidad * valorUnitario;
+            document.getElementById('totalPagadocuota').value = total.toFixed(2);
+            calculateTotal();
+        }
+        
+        function calculateTotalSeguro() {
+            const cantidad = parseFloat(document.getElementById('cantidadcuotasseguro').value) || 0;
+            const valorUnitario = parseFloat(document.getElementById('SeguroCuota').value) || 0;
+            const total = cantidad * valorUnitario;
+            document.getElementById('totalPgadoSeguro').value = total.toFixed(2);
+            calculateTotal();
+        }
+        
+        function calculateTotal() {
+            const totalCuota = parseFloat(document.getElementById('totalPagadocuota').value) || 0;
+            const totalSeguro = parseFloat(document.getElementById('totalPgadoSeguro').value) || 0;
+            const valorInteres = parseFloat(document.getElementById('interesgenerado').value) || 0;
+            
+            document.getElementById('totalinteres').value = valorInteres.toFixed(2);
+            
+            const totalFinal = totalCuota + totalSeguro + valorInteres;
+            document.getElementById('totalPagadofinal').value = totalFinal.toFixed(2);
+        }
+        
+        // Inicializar el formulario cuando se carga el documento
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer la fecha actual en el campo de fecha
+            const today = new Date();
+            const formattedDate = today.toISOString().substr(0, 10);
+            document.getElementById('fechacomprobante').value = formattedDate;
+            
+            // Añadir evento para buscar cliente cuando pierde el foco el campo DNI
+            document.getElementById('clienteDni').addEventListener('blur', function() {
+                const dni = this.value.trim();
+                if (dni) {
+                    buscarClientePorDNI(dni);
+                }
+            });
+            
+            // Asignar función al botón de búsqueda
+            document.getElementById('buscarClienteBtn').addEventListener('click', function() {
+                const dni = document.getElementById('clienteDni').value;
+                if (dni) {
+                    buscarClientePorDNI(dni);
+                } else {
+                    mostrarNotificacion('Por favor ingrese un DNI válido', 'error');
+                }
+            });
+            
+            // Añadir eventos para calcular totales cuando cambian los valores
+            document.getElementById('cantCuotasPagas').addEventListener('input', calculateTotalCuota);
+            document.getElementById('valorCuota').addEventListener('input', calculateTotalCuota);
+            document.getElementById('cantidadcuotasseguro').addEventListener('input', calculateTotalSeguro);
+            document.getElementById('SeguroCuota').addEventListener('input', calculateTotalSeguro);
+            document.getElementById('interesgenerado').addEventListener('input', calculateTotal);
+            
+            // Formulario para generar recibo
+            document.getElementById('receiptForm').addEventListener('submit', async function(e) {
+                e.preventDefault();// Verificar que los campos requeridos estén completos
+                const requiredFields = [
+                    'numeroRecibo', 'fechacomprobante', 'nombreCliente', 
+                    'clienteDni', 'clienteTelefono', 'clienteDomicilio',
+                    'valorCuota'
+                ];
+                
+                let missingFields = false;
+                requiredFields.forEach(field => {
+                    const element = document.getElementById(field);
+                    if (!element.value.trim()) {
+                        element.style.borderColor = 'red';
+                        missingFields = true;
+                    } else {
+                        element.style.borderColor = '#ddd';
+                    }
+                });
+                
+                if (missingFields) {
+                    mostrarNotificacion('Por favor complete todos los campos requeridos', 'error');
+                    return;
+                }
+                
+                // Recalcular totales para asegurar valores actualizados
+                calculateTotalCuota();
+                calculateTotalSeguro();
+                calculateTotal();
+                
+                // Mostrar indicador de carga
+                document.getElementById('loadingIndicator').style.display = 'block';
+                document.getElementById('successMessage').style.display = 'none';
+                document.getElementById('errorMessage').style.display = 'none';
+                
+                // Recopilar datos del formulario
+                const formData = {
+                    template: 'reciboCiudadMotors',
+                    variables: {
+                        numeroRecibo: document.getElementById('numeroRecibo').value,
+                        fechacomprobante: document.getElementById('fechacomprobante').value,
+                        metododePago: document.getElementById('metododePago').value,
+                        nombreCliente: document.getElementById('nombreCliente').value,
+                        clienteDomicilio: document.getElementById('clienteDomicilio').value,
+                        clienteDni: document.getElementById('clienteDni').value,
+                        clienteTelefono: document.getElementById('clienteTelefono').value,
+                        notas: document.getElementById('notas').value,
+                        cantCuotasPagas: document.getElementById('cantCuotasPagas').value,
+                        numeroCuota: document.getElementById('numeroCuota').value,
+                        valorCuota: document.getElementById('valorCuota').value,
+                        totalPagadocuota: document.getElementById('totalPagadocuota').value,
+                        cantidadcuotasseguro: document.getElementById('cantidadcuotasseguro').value,
+                        SeguroCuota: document.getElementById('SeguroCuota').value,
+                        totalPgadoSeguro: document.getElementById('totalPgadoSeguro').value,
+                        interesgenerado: document.getElementById('interesgenerado').value,
+                        totalinteres: document.getElementById('totalinteres').value,
+                        totalPagadofinal: document.getElementById('totalPagadofinal').value
+                    }
+                };
+                
+                try {
+                    // Enviar solicitud a la API
+                    const response = await fetch('/api/generate-pdf', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Error al generar el PDF');
+                    }
+                    
+                    // Descargar el PDF
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Recibo_${formData.variables.numeroRecibo}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Mostrar mensaje de éxitodocument.getElementById('successMessage').style.display = 'block';
+                } catch (error) {
+                    console.error('Error:', error);
+                    document.getElementById('errorMessage').style.display = 'block';
+                    document.getElementById('errorMessage').textContent = 'Error al generar el recibo: ' + error.message;
+                } finally {
+                    // Ocultar indicador de carga
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                }
+            });
+            
+            // Inicializar cálculos
+            calculateTotalCuota();
+            calculateTotalSeguro();
+            calculateTotal();
+        });
+    </script>
+</body>
+</html>

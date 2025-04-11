@@ -1,0 +1,45 @@
+# Node modules
+node_modules/
+
+# Builds y distribuciones
+dist/
+build/
+tmp/
+temp/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Entornos y configuraciones
+.env
+.env.*           # .env.development, .env.production, etc.
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# SO y editores
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Archivos ejecutables grandes (generados localmente o por pkg)
+*.exe
+*.dll
+*.so
+*.dylib
+*.node
+*.linux
+*.macos
+
+# Archivos empaquetados
+*.tgz
+
+# Git LFS (por si se usa)
+.gitattributes
+
+*.exe

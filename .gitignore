@@ -21,6 +21,10 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
+tmp/
+public/
+
+
 # SO y editores
 *.swp
 *.swo

@@ -12,7 +12,7 @@ const Papa = require('papaparse'); // Añadido para manejar CSV
 
 // Crear la aplicación Express
 const app = express();
-const PORT = process.env.PORT || 3001; // Cambiado a 3001 para evitar conflictos
+const PORT = process.env.PORT || 3004; // Cambiado a 3001 para evitar conflictos
 
 // Middlewares con límites aumentados para manejar PDFs grandes
 app.use(cors());
@@ -1045,13 +1045,5 @@ cargarCSVClientes();
 setInterval(cargarCSVClientes, 5 * 60 * 1000);
 
 // Iniciar el servidor
-app.listen(PORT, () => {
-  console.log(`API de generación de PDFs iniciada en el puerto ${PORT}`);
-  console.log(`Directorio base: ${baseDir}`);
-  console.log(`Directorio público: ${publicDir}`);
-  console.log(`Directorio de imágenes: ${imagesDir}`);
-  console.log(`Directorio de datos: ${dataDir}`);
-  console.log(`Directorio temporal: ${tmpDir}`);
-});
 
 module.exports = app;

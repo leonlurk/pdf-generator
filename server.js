@@ -1044,6 +1044,10 @@ cargarCSVClientes();
 // Recargar datos de clientes cada 5 minutos (por si se actualiza el CSV)
 setInterval(cargarCSVClientes, 5 * 60 * 1000);
 
-// Iniciar el servidor
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+  });
+}
 
 module.exports = app;
